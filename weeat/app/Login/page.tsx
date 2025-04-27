@@ -16,6 +16,28 @@ interface LoginState {
   userData: { id: string | number; name: string; email: string } | null; 
 }
 
+// Function to decode JWT token
+function parseJwt(token: string) {
+  try {
+    // Split the token into its three parts (header, payload, signature)
+    const base64Url = token.split('.')[1];
+    // Replace characters that are not valid for base64 URL encoding
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    // Decode the base64 string
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    // Parse the JSON string
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error('Error parsing JWT token:', e);
+    return null;
+  }
+}
+
 async function loginUser(prevState: LoginState, formData: FormData) {
   try {
     const email = formData.get('correo') as string;
@@ -118,6 +140,17 @@ const LoginForm: React.FC = () => {
       // Save token to localStorage
       localStorage.setItem('token', formState.token);
       
+      // Extract and save token payload information
+      const tokenPayload = parseJwt(formState.token);
+      if (tokenPayload) {
+        localStorage.setItem('tokenPayload', JSON.stringify(tokenPayload));
+        
+        // If the ID is in the token payload but not in userData, use it
+        if (tokenPayload.id && !formState.userData.id) {
+          localStorage.setItem('userId', String(tokenPayload.id));
+        }
+      }
+      
       // Save user ID specifically for the header component
       if (formState.userData.id) {
         localStorage.setItem('userId', String(formState.userData.id));
@@ -126,10 +159,22 @@ const LoginForm: React.FC = () => {
       // Save complete user data as JSON string
       localStorage.setItem('userData', JSON.stringify(formState.userData));
       
+      // Create a session data object that combines all important information
+      const sessionData = {
+        token: formState.token,
+        userData: formState.userData,
+        tokenPayload: tokenPayload || {},
+        lastLogin: new Date().toISOString()
+      };
+      
+      // Store the complete session data
+      localStorage.setItem('sessionData', JSON.stringify(sessionData));
+      
       console.log('Login successful! Stored data:', {
         token: formState.token,
-        userId: formState.userData.id,
-        userData: formState.userData
+        userId: formState.userData.id || (tokenPayload?.id || 'No ID found'),
+        userData: formState.userData,
+        tokenPayload: tokenPayload
       });
       
       router.push('/');
