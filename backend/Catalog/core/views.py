@@ -24,7 +24,7 @@ class DeleteProductView(APIView):
     def delete(self, request, product_id):
         try:
             product = Product.objects.delete_product(product_id)
-            return Response( {"deleted product with id ": f"{product_id}"}, status=200)
+            return Response( {f"deleted product with id {product_id}"}, status=200)
         except Product.DoesNotExist:
             return Response({"error": "Product not Found"}, status=404)
 
