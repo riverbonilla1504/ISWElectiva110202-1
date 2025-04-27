@@ -7,7 +7,7 @@ class User(models.Model):
     email = models.EmailField(max_length=100, unique=True)
     password = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
-    phone = models.CharField(max_length=15, unique=True)
+    phone = models.CharField(max_length=15)
     instagram = models.BooleanField(default=False)
     twitter = models.BooleanField(default=False)
     google = models.BooleanField(default=False)

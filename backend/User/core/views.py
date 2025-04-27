@@ -10,6 +10,15 @@ import jwt
 
 SECRET_KEY = 'tomasin'
 
+class getUserView(APIView):
+    def get(self, request, id_user):
+        try:
+            user = User.objects.get(id_user=id_user)
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=200)
+        except User.DoesNotExist:
+            return Response({'error': 'Usuario no encontrado'}, status=404)
+
 class RegisterView(APIView):
     def post(self, request):
         name = request.data.get('name')
