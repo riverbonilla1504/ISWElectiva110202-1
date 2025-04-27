@@ -9,13 +9,25 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFormState, useFormStatus } from 'react-dom';
 
-async function loginUser(prevState: any, formData: FormData) {
+interface LoginState {
+  error: string | null;
+  success: boolean;
+  token: string | null;
+  userData: { id: string | number; name: string; email: string } | null; 
+}
+
+async function loginUser(prevState: LoginState, formData: FormData) {
   try {
     const email = formData.get('correo') as string;
     const password = formData.get('contrasena') as string;
     
     if (!email || !password) {
-      return { error: 'Todos los campos son requeridos.' };
+      return { 
+        error: 'Todos los campos son requeridos.',
+        success: false,
+        token: null,
+        userData: null
+      };
     }
     
     const response = await fetch('http://localhost:8001/user/login/', {
@@ -31,20 +43,34 @@ async function loginUser(prevState: any, formData: FormData) {
     
     if (!response.ok) {
       const errorData = await response.json();
-      return { error: errorData.message || 'Credenciales inválidas. Por favor intenta de nuevo.' };
+      return { 
+        error: errorData.message || 'Credenciales inválidas. Por favor intenta de nuevo.',
+        success: false,
+        token: null,
+        userData: null
+      };
     }
     
     const data = await response.json();
+    
+    // Ensure we have the userData structure
+    const userData = data.user || data.userData || data;
     
     // Return both token and user data
     return { 
       success: true, 
       token: data.token,
-      userData: data.user || data.userData || data // Handling different possible response formats
+      userData: userData,
+      error: null
     };
   } catch (err) {
     console.error('Error al iniciar sesión:', err);
-    return { error: 'Error de conexión. Por favor verifica tu internet e intenta de nuevo.' };
+    return { 
+      error: 'Error de conexión. Por favor verifica tu internet e intenta de nuevo.',
+      success: false,
+      token: null,
+      userData: null
+    };
   }
 }
 
@@ -88,14 +114,23 @@ const LoginForm: React.FC = () => {
   });
   
   React.useEffect(() => {
-    if (formState.success && formState.token) {
-      // Save both token and user data to localStorage
+    if (formState.success && formState.token && formState.userData) {
+      // Save token to localStorage
       localStorage.setItem('token', formState.token);
       
-      // Save user data as JSON string
-      if (formState.userData) {
-        localStorage.setItem('userData', JSON.stringify(formState.userData));
+      // Save user ID specifically for the header component
+      if (formState.userData.id) {
+        localStorage.setItem('userId', String(formState.userData.id));
       }
+      
+      // Save complete user data as JSON string
+      localStorage.setItem('userData', JSON.stringify(formState.userData));
+      
+      console.log('Login successful! Stored data:', {
+        token: formState.token,
+        userId: formState.userData.id,
+        userData: formState.userData
+      });
       
       router.push('/');
     }

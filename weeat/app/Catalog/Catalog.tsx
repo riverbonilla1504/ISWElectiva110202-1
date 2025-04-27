@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { ShoppingCart } from 'lucide-react';
-import environment from '../environment';
+import environment from '../../environment';
 
 interface Food {
   id: number;

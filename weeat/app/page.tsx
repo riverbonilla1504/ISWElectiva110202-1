@@ -1,5 +1,5 @@
 import Header from "./Header";
-import Catalog from "./Catalog";
+import Catalog from "./Catalog/Catalog";
 
 export default function Home() {
   return (
