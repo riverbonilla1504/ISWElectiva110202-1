@@ -56,6 +56,26 @@ export default function Header() {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // Función para actualizar el userData y localStorage simultáneamente
+  const updateUserDataAndStorage = (newData: Partial<UserData>) => {
+    if (!userData) return; // Safety check
+    
+    // Primero actualizamos el estado
+    const updatedUserData: UserData = {
+      ...userData,
+      ...Object.fromEntries(
+        Object.entries(newData).filter(([, value]) => value !== undefined)
+      ) as { [key: string]: string | number }
+    };
+    
+    setUserData(updatedUserData);
+    
+    // Luego actualizamos localStorage
+    localStorage.setItem('userData', JSON.stringify(updatedUserData));
+    
+    console.log('User data updated in state and localStorage:', updatedUserData);
+  };
+
   const fetchUserData = async () => {
     setFetchAttempted(true);
     setIsDataLoading(true);
@@ -73,9 +93,10 @@ export default function Header() {
 
       console.log(`Attempting to fetch user data for ID: ${userId}`);
       
-      // First try the API endpoint
+      // First try the API endpoint with trailing slash
       try {
-        const apiUrl = `http://localhost:8001/user/get/${userId}`;
+        // Added trailing slash to the endpoint URL
+        const apiUrl = `http://localhost:8001/user/get/${userId}/`;
         console.log(`Fetching from API: ${apiUrl}`);
         
         const response = await axios.get(apiUrl, {
@@ -215,7 +236,8 @@ export default function Header() {
 
       console.log(`Updating ${field} with:`, payload);
 
-      const apiUrl = `http://localhost:8001/user/edit/${userId}`;
+      // Added trailing slash to the endpoint URL
+      const apiUrl = `http://localhost:8001/user/edit/${userId}/`;
       console.log(`Sending update to: ${apiUrl}`);
       
       const response = await axios.put(
@@ -234,29 +256,23 @@ export default function Header() {
       if (response.data) {
         console.log('Update successful:', response.data);
         
-        // Update both state and localStorage with new data
-        const updatedUserData = {
-          ...userData,
-          ...payload
-        };
+        // Actualizar inmediatamente userData y localStorage
+        updateUserDataAndStorage(payload);
         
-        setUserData(updatedUserData);
-        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+        // Actualizar el formData para que todos los componentes reflejen los cambios
+        if (payload.name !== undefined) {
+          setFormData(prev => ({ ...prev, nombre: payload.name || "" }));
+        }
+        if (payload.email !== undefined) {
+          setFormData(prev => ({ ...prev, correo: payload.email || "" }));
+        }
+        if (payload.phone !== undefined) {
+          setFormData(prev => ({ ...prev, celular: payload.phone || "" }));
+        }
         
-        // Update form data to match the new values
-        setFormData(prev => ({
-          ...prev,
-          ...Object.entries(payload).reduce((acc, [key, value]) => {
-            if (key === 'name') acc.nombre = value;
-            if (key === 'email') acc.correo = value;
-            if (key === 'phone') acc.celular = value;
-            return acc;
-          }, {} as typeof prev)
-        }));
+        toggleEditing(field);
+        showNotification('success', 'Datos actualizados con éxito');
       }
-
-      toggleEditing(field);
-      showNotification('success', 'Datos actualizados con éxito');
 
     } catch (error) {
       console.error(`Error updating ${field}:`, error);
