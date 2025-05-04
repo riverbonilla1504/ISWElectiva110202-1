@@ -6,8 +6,16 @@ class CardsManager(models.Manager):
         return card
     def get_cards_by_user(self, id_user):
         return self.filter(id_user=id_user)
-    def get_card(self, card_id):
+    def get_card(self, id_card):
         try:
-            return self.get(id=card_id)
+            return self.get(id_card=id_card)
         except self.model.DoesNotExist:
             return None
+        
+    def delete_card(self, id_card):
+        try:
+            card = self.get(id_card=id_card)
+            card.delete()
+            return True
+        except self.model.DoesNotExist:
+            return False
