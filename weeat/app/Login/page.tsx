@@ -177,7 +177,7 @@ const LoginForm: React.FC = () => {
         tokenPayload: tokenPayload
       });
       
-      router.push('/');
+      router.push('/Ubication');
     }
   }, [formState.success, formState.token, formState.userData, router]);
 
