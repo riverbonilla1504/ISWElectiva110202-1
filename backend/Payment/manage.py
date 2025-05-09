@@ -6,7 +6,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'User.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Payment.settings')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -16,7 +16,7 @@ def main():
             "forget to activate a virtual environment?"
         ) from exc
     if len(sys.argv) >= 2 and sys.argv[1] == "runserver" and len(sys.argv) == 2:
-        sys.argv.append("8001")
+        sys.argv.append("8002")
     execute_from_command_line(sys.argv)
 
 
