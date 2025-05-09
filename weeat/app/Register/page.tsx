@@ -8,14 +8,21 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useFormState, useFormStatus } from 'react-dom';
 
-async function registerUser(prevState: { error: any; success?: boolean }, formData: FormData) {  
+// Definiendo un tipo para el estado del formulario
+type FormState = {
+  error: string | null;
+  success: boolean;
+};
+
+// Función para registrar usuario con tipos correctos
+async function registerUser(prevState: FormState, formData: FormData): Promise<FormState> {  
   try {
     const name = formData.get('nombre') as string;
     const email = formData.get('correo') as string;
     const password = formData.get('contrasena') as string;
     
     if (!name || !email || !password) {
-      return { error: 'Todos los campos son requeridos.' };
+      return { error: 'Todos los campos son requeridos.', success: false };
     }
     
     const response = await fetch('http://localhost:8001/user/register/', {
@@ -32,13 +39,19 @@ async function registerUser(prevState: { error: any; success?: boolean }, formDa
     
     if (!response.ok) {
       const errorData = await response.json();
-      return { error: errorData.message || 'Error al registrar. Por favor intenta de nuevo.' };
+      return { 
+        error: errorData.message || 'Error al registrar. Por favor intenta de nuevo.',
+        success: false 
+      };
     }
     
-    return { success: true };
+    return { error: null, success: true };
   } catch (err) {
     console.error('Error al registrar:', err);
-    return { error: 'Error de conexión. Por favor verifica tu internet e intenta de nuevo.' };
+    return { 
+      error: 'Error de conexión. Por favor verifica tu internet e intenta de nuevo.',
+      success: false 
+    };
   }
 }
 
@@ -71,7 +84,7 @@ function FormSubmitButton() {
 
 const RegisterForm: React.FC = () => {
   const router = useRouter();
-  const [formState, formAction] = useFormState(registerUser, { error: null, success: undefined });
+  const [formState, formAction] = useFormState(registerUser, { error: null, success: false });
   
   if (formState.success) {
     router.push('/Login');
@@ -459,14 +472,14 @@ const RegisterForm: React.FC = () => {
             <circle cx="200" cy="250" r="40" fill="#FFF8E1" opacity="0.5"/>
 
             <g>
-              <circle cx="80" cy="230" r="40" fill="none" stroke="#333" stroke-width="6"/>
-              <circle cx="300" cy="230" r="40" fill="none" stroke="#333" stroke-width="6"/>
-              <circle cx="80" cy="230" r="36" fill="none" stroke="#666" stroke-width="2"/>
-              <circle cx="300" cy="230" r="36" fill="none" stroke="#666" stroke-width="2"/>
+              <circle cx="80" cy="230" r="40" fill="none" stroke="#333" strokeWidth="6"/>
+              <circle cx="300" cy="230" r="40" fill="none" stroke="#333" strokeWidth="6"/>
+              <circle cx="80" cy="230" r="36" fill="none" stroke="#666" strokeWidth="2"/>
+              <circle cx="300" cy="230" r="36" fill="none" stroke="#666" strokeWidth="2"/>
               <circle cx="80" cy="230" r="5" fill="#333"/>
               <circle cx="300" cy="230" r="5" fill="#333"/>
               
-              <g stroke="#888" stroke-width="2">
+              <g stroke="#888" strokeWidth="2">
                 <line x1="80" y1="230" x2="80" y2="190"/>
                 <line x1="80" y1="230" x2="80" y2="270"/>
                 <line x1="80" y1="230" x2="40" y2="230"/>
@@ -485,19 +498,19 @@ const RegisterForm: React.FC = () => {
                 <line x1="300" y1="230" x2="320" y2="250"/>
               </g>
               
-              <path d="M80,230 L135,160 L220,160 L300,230" fill="none" stroke="#E35604" stroke-width="8" stroke-linejoin="round"/>
-              <path d="M135,160 L170,230" fill="none" stroke="#E35604" stroke-width="8"/>
-              <path d="M220,160 L170,230" fill="none" stroke="#E35604" stroke-width="8"/>
+              <path d="M80,230 L135,160 L220,160 L300,230" fill="none" stroke="#E35604" strokeWidth="8" strokeLinejoin="round"/>
+              <path d="M135,160 L170,230" fill="none" stroke="#E35604" strokeWidth="8"/>
+              <path d="M220,160 L170,230" fill="none" stroke="#E35604" strokeWidth="8"/>
 
-              <path d="M135,160 L125,130" fill="none" stroke="#333" stroke-width="6"/>
-              <line x1="125" y1="130" x2="105" y2="140" stroke="#333" stroke-width="6"/>
+              <path d="M135,160 L125,130" fill="none" stroke="#333" strokeWidth="6"/>
+              <line x1="125" y1="130" x2="105" y2="140" stroke="#333" strokeWidth="6"/>
               
-              <path d="M220,160 L240,140" fill="none" stroke="#333" stroke-width="6"/>
+              <path d="M220,160 L240,140" fill="none" stroke="#333" strokeWidth="6"/>
               <ellipse cx="245" cy="140" rx="10" ry="5" fill="#333"/>
               
               <circle cx="170" cy="230" r="10" fill="#888"/>
-              <line x1="170" y1="230" x2="155" y2="255" stroke="#333" stroke-width="4"/>
-              <line x1="170" y1="230" x2="185" y2="205" stroke="#333" stroke-width="4"/>
+              <line x1="170" y1="230" x2="155" y2="255" stroke="#333" strokeWidth="4"/>
+              <line x1="170" y1="230" x2="185" y2="205" stroke="#333" strokeWidth="4"/>
               <circle cx="155" cy="255" r="5" fill="#333"/>
               <circle cx="185" cy="205" r="5" fill="#333"/>
             </g>
@@ -506,19 +519,19 @@ const RegisterForm: React.FC = () => {
               <rect x="235" y="110" width="70" height="60" rx="5" fill="#E35604"/>
               <rect x="235" y="100" width="70" height="10" rx="3" fill="#E35604"/>
               <rect x="240" y="115" width="60" height="50" rx="3" fill="#FFF8E1"/>
-              <text x="270" y="145" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#E35604">WE EAT</text>
-              <path d="M240,150 L300,150" stroke="#E35604" stroke-width="2"/>
-              <path d="M265,130 L275,130" stroke="#E35604" stroke-width="2"/>
-              <path d="M250,155 L290,155" stroke="#E35604" stroke-width="1"/>
-              <path d="M250,160" stroke="#E35604" stroke-width="1"/>
+              <text x="270" y="145" fontFamily="Arial" fontSize="16" fontWeight="bold" textAnchor="middle" fill="#E35604">WE EAT</text>
+              <path d="M240,150 L300,150" stroke="#E35604" strokeWidth="2"/>
+              <path d="M265,130 L275,130" stroke="#E35604" strokeWidth="2"/>
+              <path d="M250,155 L290,155" stroke="#E35604" strokeWidth="1"/>
+              <path d="M250,160" stroke="#E35604" strokeWidth="1"/>
 
-              <path d="M270,170 L270,140" fill="none" stroke="#333" stroke-width="4"/>
-              <path d="M270,170 L220,160" fill="none" stroke="#333" stroke-width="4"/>
+              <path d="M270,170 L270,140" fill="none" stroke="#333" strokeWidth="4"/>
+              <path d="M270,170 L220,160" fill="none" stroke="#333" strokeWidth="4"/>
             </g>
             
             <ellipse cx="200" cy="270" rx="120" ry="10" fill="#E35604" opacity="0.2"/>
             
-            <g stroke="#E35604" stroke-width="2" stroke-linecap="round" opacity="0.7">
+            <g stroke="#E35604" strokeWidth="2" strokeLinecap="round" opacity="0.7">
               <path d="M40,220 L20,220" />
               <path d="M35,200 L15,195" />
               <path d="M50,185 L35,175" />
