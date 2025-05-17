@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read #This is required for actions/checkout
 
     steps:
       - uses: actions/checkout@v4
@@ -25,24 +25,25 @@ jobs:
           python-version: '3.13'
 
       - name: Create and start virtual environment
-        working-directory: backend/User
         run: |
           python -m venv venv
           source venv/bin/activate
-
+      
       - name: Install dependencies
-        working-directory: backend/User
         run: pip install -r requirements.txt
+        
+      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Zip artifact for deployment
-        working-directory: backend/User
-        run: zip -r ../../release.zip . -x "venv/**"
+        run: zip release.zip ./* -r
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: release.zip
+          path: |
+            release.zip
+            !venv/
 
   deploy:
     runs-on: ubuntu-latest
@@ -67,10 +68,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C05E3F2DCCF346AD85111F15BE3C5271 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9EBB0C0CCC7E4D0B81BD1117B00E539A }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_032C1EF3DED7445AA8A3D52469A5E874 }}
-          client-secret: ${{ secrets.AZUREAPPSERVICE_CLIENTSECRET }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_103E5017DF3246D3A1DFF63E7A7D253B }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_6B887345E19F48EBBAAF4D6E205A0356 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4B3E24EFBAB545A29644E1BCAF73140A }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
