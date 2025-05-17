@@ -1,5 +1,8 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - catalogservice
+name: Build and deploy Python app to Azure Web App - userservice1
 
 on:
   push:
@@ -22,17 +25,17 @@ jobs:
           python-version: '3.13'
 
       - name: Create and start virtual environment
-        working-directory: backend/Catalog
+        working-directory: backend/User
         run: |
           python -m venv venv
           source venv/bin/activate
 
       - name: Install dependencies
-        working-directory: backend/Catalog
+        working-directory: backend/User
         run: pip install -r requirements.txt
 
       - name: Zip artifact for deployment
-        working-directory: backend/Catalog
+        working-directory: backend/User
         run: zip -r ../../release.zip . -x "venv/**"
 
       - name: Upload artifact for deployment jobs
@@ -48,8 +51,8 @@ jobs:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write
-      contents: read
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
 
     steps:
       - name: Download artifact from build job
@@ -60,19 +63,18 @@ jobs:
       - name: Unzip artifact for deployment
         run: unzip release.zip
 
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9E4D6927B15F47E99D591C1CB12B6300 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_2D89D27F6F3848D282E924E85EF1CF22 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2F57ACC029554286A7255786F34221BD }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C05E3F2DCCF346AD85111F15BE3C5271 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9EBB0C0CCC7E4D0B81BD1117B00E539A }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_032C1EF3DED7445AA8A3D52469A5E874 }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
-          app-name: 'catalogservice'
+          app-name: 'userservice1'
           slot-name: 'Production'
-          package: .
-
           
