@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Pencil, X, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
 import axios from 'axios';
 
@@ -35,11 +35,6 @@ export default function UserProfileEditor({ onLogout }: UserProfileEditorProps) 
   const [fetchAttempted, setFetchAttempted] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // Run data fetch when component mounts
-  useEffect(() => {
-    fetchUserData();
-  }, []);
-
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 3000);
@@ -65,7 +60,7 @@ export default function UserProfileEditor({ onLogout }: UserProfileEditorProps) 
     console.log('User data updated in state and localStorage:', updatedUserData);
   };
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     setFetchAttempted(true);
     setIsDataLoading(true);
     setApiError(null);
@@ -165,7 +160,12 @@ export default function UserProfileEditor({ onLogout }: UserProfileEditorProps) 
     } finally {
       setIsDataLoading(false);
     }
-  };
+  }, []);
+
+  // Run data fetch when component mounts
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
