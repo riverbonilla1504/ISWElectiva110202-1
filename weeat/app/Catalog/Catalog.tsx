@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
+import axios from 'axios';
 import { ShoppingCart, AlertCircle } from 'lucide-react';
-import Image from 'next/image';
+import environment from '../../environment';
 import Background from '../Background';
 
 interface Food {
@@ -43,7 +43,8 @@ const orderApi = axios.create({
 });
 
 // Add request interceptor to automatically add auth token
-const addAuthToken = (config: InternalAxiosRequestConfig) => {
+const addAuthToken = (config: any) => {
+  config.headers = config.headers || {};
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token) {
@@ -57,7 +58,7 @@ catalogApi.interceptors.request.use(addAuthToken, (error) => Promise.reject(erro
 orderApi.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
 
 // Add response interceptor to handle auth errors
-const handleAuthError = (error: AxiosError) => {
+const handleAuthError = (error: any) => {
   if (error.response?.status === 403 || error.response?.status === 401) {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
@@ -103,8 +104,8 @@ export default function Catalog() {
         userId: isValidUserId ? userId : null, 
         isAuthenticated: !!(isValidToken && isValidUserId) 
       };
-    } catch (err) {
-      console.error('Error checking authentication:', err);
+    } catch (error) {
+      console.error('Error checking authentication:', error);
       return { token: null, userId: null, isAuthenticated: false };
     }
   };
@@ -117,8 +118,8 @@ export default function Catalog() {
       const response = await catalogApi.get('/catalog/');
       console.log('Catalog response:', response.data);
       setFoods(response.data);
-    } catch (err) {
-      console.error('Error fetching food items:', err);
+    } catch (error) {
+      console.error('Error fetching food items:', error);
       setError('Error al cargar las comidas');
     } finally {
       setIsLoading(false);
@@ -158,7 +159,7 @@ export default function Catalog() {
           // If no valid cart, create new one
           throw new Error('No valid cart found');
         }
-      } catch {
+      } catch (error) {
         console.log('Creating new cart...');
         try {
           // Create a new order with the initial product and complete product info
@@ -298,11 +299,9 @@ export default function Catalog() {
               >
                 <div className="h-36 overflow-hidden">
                   {food.picture ? (
-                    <Image 
+                    <img 
                       src={food.picture} 
                       alt={food.name} 
-                      width={200}
-                      height={144}
                       className="w-full h-full object-cover transition-all duration-500 hover:scale-110"
                     />
                   ) : (
@@ -349,11 +348,9 @@ export default function Catalog() {
             {/* Pizza Pepperoni Offer */}
             <div className="flex items-center bg-white p-3 rounded-lg border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:scale-102 hover:border-[#FF6900]">
               <div className="w-28 h-28 mr-2">
-                <Image 
+                <img 
                   src="/pizzapeperoni.png" 
                   alt="Pizza Pepperoni" 
-                  width={112}
-                  height={112}
                   className="w-full h-full object-contain transition-all duration-500 hover:scale-110 hover:rotate-3"
                 />
               </div>
@@ -384,11 +381,9 @@ export default function Catalog() {
             {/* Hamburguesa Casera Offer */}
             <div className="flex items-center bg-white p-3 rounded-lg border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:scale-102 hover:border-[#FF6900]">
               <div className="w-28 h-28 mr-2">
-                <Image 
+                <img 
                   src="/hamburguer.png" 
                   alt="Hamburguesa Casera" 
-                  width={112}
-                  height={112}
                   className="w-full h-full object-contain transition-all duration-500 hover:scale-110 hover:rotate-3"
                 />
               </div>
