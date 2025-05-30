@@ -85,7 +85,7 @@ export default function UserProfileEditor({ onLogout }: UserProfileEditorProps) 
       // First try the API endpoint with trailing slash
       try {
         // Added trailing slash to the endpoint URL
-        const apiUrl = `http://localhost:8001/user/get/${userId}/`;
+        const apiUrl = `https://userservice1-haa0g5e6e2dcf7cr.eastus-01.azurewebsites.net/user/get/${userId}/`;
         console.log(`Fetching from API: ${apiUrl}`);
 
         const response = await axios.get(apiUrl, {
@@ -226,7 +226,7 @@ export default function UserProfileEditor({ onLogout }: UserProfileEditorProps) 
       console.log(`Updating ${field} with:`, payload);
 
       // Added trailing slash to the endpoint URL
-      const apiUrl = `http://localhost:8001/user/edit/${userId}/`;
+      const apiUrl = `https://userservice1-haa0g5e6e2dcf7cr.eastus-01.azurewebsites.net/user/edit/${userId}/`;
       console.log(`Sending update to: ${apiUrl}`);
 
       const response = await axios.put(

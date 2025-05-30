@@ -25,7 +25,7 @@ async function registerUser(prevState: FormState, formData: FormData): Promise<F
       return { error: 'Todos los campos son requeridos.', success: false };
     }
     
-    const response = await fetch('http://localhost:8001/user/register/', {
+    const response = await fetch('https://userservice1-haa0g5e6e2dcf7cr.eastus-01.azurewebsites.net/user/register/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

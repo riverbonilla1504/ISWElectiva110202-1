@@ -28,9 +28,9 @@ interface UserData {
   phone?: string;
 }
 
-// Environment configuration
-const ORDER_API_URL = 'http://localhost:8003';
-const CATALOG_API_URL = 'http://localhost:8000';
+// API configuration
+const ORDER_API_URL = 'https://orderservice-f9erf2hye8gxfqcg.eastus-01.azurewebsites.net';
+const CATALOG_API_URL = 'https://catalogservice-fvgefddfdpcteehg.eastus-01.azurewebsites.net';
 
 // Create axios instance with default config
 const api = axios.create({

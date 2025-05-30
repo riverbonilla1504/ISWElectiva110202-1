@@ -16,9 +16,9 @@ interface Food {
   picture: string;
 }
 
-// Environment configuration
-const CATALOG_API_URL = 'http://localhost:8000';
-const ORDER_API_URL = 'http://localhost:8003';
+// API configuration
+const CATALOG_API_URL = 'https://catalogservice-fvgefddfdpcteehg.eastus-01.azurewebsites.net';
+const ORDER_API_URL = 'https://orderservice-f9erf2hye8gxfqcg.eastus-01.azurewebsites.net';
 
 // Create axios instance for catalog service
 const catalogApi = axios.create({
