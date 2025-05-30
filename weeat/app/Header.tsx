@@ -1,70 +1,180 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Package, ShoppingCart as ShoppingCartIcon, Menu, User, X, LogOut, Plus, Minus } from 'lucide-react';
+import { Package, Menu, User, X, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import UserProfileEditor from './UserProfileEditor';
+import ShoppingCart from './ShoppingCart'; // Import the backend shopping cart component
+
+// Types
+interface CartItem {
+  id: number;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  id_product: number;
+}
+
+interface Order {
+  id?: number;
+  id_order?: number; // Added to match backend response
+  items: CartItem[];
+  total: number;
+  status: string;
+}
+
+interface UserData {
+  name: string;
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+// Environment configuration
+const environment = {
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003/'
+};
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: environment.apiUrl,
+  timeout: 10000,
+});
+
+// Add request interceptor to automatically add auth token
+api.interceptors.request.use(
+  (config) => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 403 || error.response?.status === 401) {
+      // Clear auth data on unauthorized
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userData');
+      // Redirect to login
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default function Header() {
   const router = useRouter();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement | null>(null);
   const sideMenuRef = useRef<HTMLDivElement | null>(null);
-  const cartRef = useRef<HTMLDivElement | null>(null);
 
-  // Cart state
-  const [cartItems, setCartItems] = useState([
-    { 
-      id: 1, 
-      name: 'Hawaiano', 
-      price: 4000, 
-      quantity: 1, 
-      image: '/hawaiano.jpg'
-    }
-  ]);
-
-  // User data state - minimal data needed in the Header
-  interface UserData {
-    name: string;
-    [key: string]: string | number | boolean | null | undefined; // Specify possible types for additional properties
-  }
-
+  // User data state
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
-  // Shopping Cart Functions
-  const toggleCart = () => {
-    setIsCartOpen(!isCartOpen);
-    if (profileDropdownOpen) setProfileDropdownOpen(false);
-    if (sideMenuOpen) setSideMenuOpen(false);
+  // Cart state for header display (will be synced with backend)
+  const [cartItemCount, setCartItemCount] = useState(0);
+  const [isCartLoading, setIsCartLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Check authentication status
+  const checkAuthentication = (): { token: string | null; userId: string | null; isAuthenticated: boolean } => {
+    if (typeof window === "undefined") {
+      return { token: null, userId: null, isAuthenticated: false };
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      const userId = localStorage.getItem('userId');
+      
+      // More thorough token validation
+      const isValidToken = token && 
+        token.trim().length > 0 && 
+        !token.includes('undefined') && 
+        !token.includes('null') &&
+        token.split('.').length === 3; // Basic JWT format check
+      
+      const isValidUserId = userId && 
+        userId.trim().length > 0 && 
+        !userId.includes('undefined') && 
+        !userId.includes('null');
+      
+      return { 
+        token: isValidToken ? token : null, 
+        userId: isValidUserId ? userId : null, 
+        isAuthenticated: !!(isValidToken && isValidUserId) 
+      };
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      return { token: null, userId: null, isAuthenticated: false };
+    }
   };
 
-  const increaseQuantity = (id: number) => {
-    setCartItems(
-      cartItems.map(item => 
-        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
-      )
-    );
-  };
+  // Load cart count for header display
+  const loadCartCount = async () => {
+    try {
+      const { isAuthenticated } = checkAuthentication();
+      if (!isAuthenticated) {
+        setCartItemCount(0);
+        return;
+      }
 
-  const decreaseQuantity = (id: number) => {
-    setCartItems(
-      cartItems.map(item => 
-        item.id === id && item.quantity > 1 
-          ? { ...item, quantity: item.quantity - 1 } 
-          : item
-      )
-    );
-  };
-
-  const removeItem = (id: number) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
-  };
-
-  const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+      setIsCartLoading(true);
+      setError(null);
+      
+      const response = await api.get('/order/cart/');
+      console.log('Header cart response:', response.data);
+      
+      const orderData = response.data;
+      
+      if (orderData) {
+        // Check if we have items in the response
+        let items = [];
+        if (orderData.items && Array.isArray(orderData.items)) {
+          items = orderData.items;
+        } else if (orderData.order_items && Array.isArray(orderData.order_items)) {
+          items = orderData.order_items;
+        } else if (orderData.products && Array.isArray(orderData.products)) {
+          items = orderData.products;
+        }
+        
+        const totalItems = items.reduce((total: number, item: any) => {
+          const quantity = parseInt(item.quantity || '1');
+          return total + quantity;
+        }, 0);
+        
+        console.log('Header cart count:', totalItems);
+        setCartItemCount(totalItems);
+      } else {
+        setCartItemCount(0);
+      }
+    } catch (error) {
+      console.error('Error loading cart count:', error);
+      setCartItemCount(0);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          handleLogout();
+        } else if (error.response?.status === 404) {
+          // No cart exists yet - this is normal
+          console.log('No cart exists for header count');
+          setCartItemCount(0);
+        }
+      }
+    } finally {
+      setIsCartLoading(false);
+    }
   };
 
   // Basic user data fetch for header display
@@ -72,31 +182,58 @@ export default function Header() {
     const fetchBasicUserData = () => {
       setIsDataLoading(true);
       try {
+        const { isAuthenticated } = checkAuthentication();
+        if (!isAuthenticated) {
+          setUserData(null);
+          return;
+        }
+
         const storedUserData = localStorage.getItem('userData');
-        if (storedUserData) {
+        if (storedUserData && storedUserData !== 'undefined' && storedUserData !== 'null') {
           const parsedUserData = JSON.parse(storedUserData);
           setUserData(parsedUserData);
+        } else {
+          setUserData(null);
         }
       } catch (error) {
         console.error('Error loading basic user data:', error);
+        setUserData(null);
       } finally {
         setIsDataLoading(false);
       }
     };
 
     fetchBasicUserData();
+    loadCartCount(); // Load cart count on component mount
+  }, []);
+
+  // Refresh cart count when cart operations happen
+  const handleCartUpdate = () => {
+    loadCartCount();
+  };
+
+  // Listen for cart updates from other components
+  useEffect(() => {
+    const handleCartChange = () => {
+      loadCartCount();
+    };
+
+    // Listen for custom cart update events
+    window.addEventListener('cartUpdated', handleCartChange);
+    
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartChange);
+    };
   }, []);
 
   const toggleProfileDropdown = () => {
     setProfileDropdownOpen(!profileDropdownOpen);
     if (sideMenuOpen) setSideMenuOpen(false);
-    if (isCartOpen) setIsCartOpen(false);
   };
 
   const toggleSideMenu = () => {
     setSideMenuOpen(!sideMenuOpen);
     if (profileDropdownOpen) setProfileDropdownOpen(false);
-    if (isCartOpen) setIsCartOpen(false);
   };
 
   const handleLogout = () => {
@@ -104,33 +241,51 @@ export default function Header() {
     localStorage.removeItem('token');
     localStorage.removeItem('userData');
     localStorage.removeItem('userId');
-
+    
     // Reset the user data state
     setUserData(null);
-
+    setCartItemCount(0);
+    
     // Redirect to login page
     router.push('/Login');
+  };
+
+  // Navigation handlers
+  const handleProfileNavigation = () => {
+    setSideMenuOpen(false);
+    router.push('/profile');
+  };
+
+  const handleWalletNavigation = () => {
+    setSideMenuOpen(false);
+    router.push('/Wallet');
+  };
+
+  const handleOrderHistoryNavigation = () => {
+    setSideMenuOpen(false);
+    router.push('/orders');
+  };
+
+  const handleCouponsNavigation = () => {
+    setSideMenuOpen(false);
+    router.push('/coupons');
   };
 
   // Click outside handlers
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       // Close profile dropdown when clicking outside
-      if (profileDropdownRef.current && event.target instanceof Node && !profileDropdownRef.current.contains(event.target) &&
+      if (profileDropdownRef.current && event.target instanceof Node && 
+          !profileDropdownRef.current.contains(event.target) &&
           !(event.target as HTMLElement).closest('button[data-profile-toggle]')) {
         setProfileDropdownOpen(false);
       }
-
+      
       // Close side menu when clicking outside
-      if (sideMenuRef.current && event.target instanceof Node && !sideMenuRef.current.contains(event.target) &&
+      if (sideMenuRef.current && event.target instanceof Node && 
+          !sideMenuRef.current.contains(event.target) &&
           !(event.target as HTMLElement).closest('button[data-menu-toggle]')) {
         setSideMenuOpen(false);
-      }
-
-      // Close cart when clicking outside
-      if (cartRef.current && event.target instanceof Node && !cartRef.current.contains(event.target) &&
-          !(event.target as Element).closest('button[data-cart-toggle]')) {
-        setIsCartOpen(false);
       }
     }
 
@@ -145,28 +300,25 @@ export default function Header() {
       <div className="relative">
         <header className="bg-orange-500 py-3 px-4 flex items-center justify-between w-full shadow-md z-30 relative">
           <div className="flex items-center">
-            <h1 className="text-white font-bold text-2xl tracking-wide">WE EAT</h1>
+            <h1 className="text-white font-bold text-2xl tracking-wide cursor-pointer" onClick={() => router.push('/')}>
+              WE EAT
+            </h1>
           </div>
-
+          
           <div className="flex items-center gap-5">
-            <button className="text-white hover:text-orange-200 transition-colors duration-300">
+            <button 
+              className="text-white hover:text-orange-200 transition-colors duration-300"
+              onClick={handleOrderHistoryNavigation}
+              title="Historial de pedidos"
+            >
               <Package size={24} />
             </button>
-            
-            {/* Shopping Cart Button */}
-            <button 
-              className="text-white hover:text-orange-200 transition-colors duration-300 relative"
-              onClick={toggleCart}
-              data-cart-toggle
-            >
-              <ShoppingCartIcon size={24} />
-              {cartItems.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-white text-orange-500 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                  {cartItems.reduce((total, item) => total + item.quantity, 0)}
-                </span>
-              )}
-            </button>
-            
+
+            {/* Shopping Cart Component - now using the backend version */}
+            <div className="relative">
+              <ShoppingCart />
+            </div>
+
             <button
               className="text-white hover:text-orange-200 transition-colors duration-300"
               onClick={toggleSideMenu}
@@ -174,6 +326,7 @@ export default function Header() {
             >
               {sideMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
+
             <button
               className="relative bg-white hover:bg-orange-100 rounded-full h-10 w-10 flex items-center justify-center transition-colors duration-300"
               onClick={toggleProfileDropdown}
@@ -187,91 +340,12 @@ export default function Header() {
           </div>
         </header>
 
-        {/* Shopping Cart Dropdown - Modificado para estar más a la izquierda y tener más ancho */}
-        <div 
-          ref={cartRef}
-          className={`absolute top-16 right-0 -translate-x-24 bg-white rounded-lg shadow-md z-30 w-96 border border-gray-200 transition-all duration-300 origin-top-right ${
-            isCartOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-          }`}
-        >
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-orange-700">Carrito</h2>
-              <button 
-                onClick={toggleCart}
-                className="text-gray-500 hover:text-orange-500"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {cartItems.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-gray-500">Tu carrito está vacío</p>
-              </div>
-            ) : (
-              <>
-                <div className="max-h-64 overflow-y-auto">
-                  {cartItems.map(item => (
-                    <div key={item.id} className="flex items-center border-b border-gray-100 py-3">
-                      <div className="w-16 h-16 rounded overflow-hidden mr-3 bg-orange-100 flex-shrink-0">
-                        {/* Placeholder for product image */}
-                        <div className="w-full h-full bg-orange-200 flex items-center justify-center">
-                          <span className="text-xs text-orange-800">Imagen</span>
-                        </div>
-                      </div>
-                      <div className="flex-grow mr-2">
-                        <h3 className="font-medium text-orange-700">{item.name}</h3>
-                        <p className="text-orange-500 font-bold">${item.price.toLocaleString()}COP</p>
-                      </div>
-                      <div className="flex items-center">
-                        <button 
-                          onClick={() => decreaseQuantity(item.id)}
-                          className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-500 hover:bg-orange-200"
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span className="mx-2 font-medium text-gray-700">{item.quantity}</span>
-                        <button 
-                          onClick={() => increaseQuantity(item.id)}
-                          className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white hover:bg-orange-600"
-                        >
-                          <Plus size={14} />
-                        </button>
-                        <button 
-                          onClick={() => removeItem(item.id)}
-                          className="ml-2 text-red-500 hover:text-red-700"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <p className="text-gray-600">Aquí puedes ver todo lo que está en tu carrito</p>
-                  </div>
-                  <div className="text-right mb-4">
-                    <p className="text-lg font-bold text-orange-700">Total: ${calculateTotal().toLocaleString()}COP</p>
-                  </div>
-                  <button 
-                    className="w-full py-3 bg-orange-500 text-white font-bold rounded-md hover:bg-orange-600 transition-colors duration-200"
-                  >
-                    PAGAR AHORA
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
         {/* Side Menu */}
         <div
           ref={sideMenuRef}
-          className={`fixed top-16 right-0 h-[calc(100vh-4rem)] bg-white shadow-xl z-20 transition-all duration-300 ease-in-out transform ${sideMenuOpen ? 'translate-x-0 w-full md:w-96' : 'translate-x-full w-0'
-            }`}
+          className={`fixed top-16 right-0 h-[calc(100vh-4rem)] bg-white shadow-xl z-20 transition-all duration-300 ease-in-out transform ${
+            sideMenuOpen ? 'translate-x-0 w-full md:w-96' : 'translate-x-full w-0'
+          }`}
         >
           <div className="p-6 h-full overflow-y-auto">
             {isDataLoading ? (
@@ -287,20 +361,40 @@ export default function Header() {
               <h2 className="text-2xl font-bold text-orange-700 mb-2">¡Hola!</h2>
             )}
             <p className="text-gray-600 mb-6">¡Bienvenido a WE EAT!</p>
-
+            
             <nav>
               <ul className="space-y-4">
                 <li>
-                  <a href="#" className="block py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200">PERFIL</a>
+                  <button 
+                    onClick={handleProfileNavigation}
+                    className="w-full text-left py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200"
+                  >
+                    PERFIL
+                  </button>
                 </li>
                 <li>
-                  <a href="/Wallet" className="block py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200">BILLETERA</a>
+                  <button 
+                    onClick={handleWalletNavigation}
+                    className="w-full text-left py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200"
+                  >
+                    BILLETERA
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="block py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200">HISTORIAL PEDIDOS</a>
+                  <button 
+                    onClick={handleOrderHistoryNavigation}
+                    className="w-full text-left py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200"
+                  >
+                    HISTORIAL PEDIDOS
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="block py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200">CUPONES</a>
+                  <button 
+                    onClick={handleCouponsNavigation}
+                    className="w-full text-left py-3 px-4 text-lg hover:bg-orange-100 rounded-md transition-colors duration-200"
+                  >
+                    CUPONES
+                  </button>
                 </li>
                 <li>
                   <button
@@ -316,7 +410,7 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Profile Dropdown - Now using the UserProfileEditor component */}
+        {/* Profile Dropdown */}
         <div
           ref={profileDropdownRef}
           className={`fixed top-16 right-0 bg-white rounded-lg shadow-md z-30 w-80 border border-gray-200 transition-all duration-300 origin-top-right ${
