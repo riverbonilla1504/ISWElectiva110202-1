@@ -1,0 +1,105 @@
+arreglar llaves foraneas de todas las apis menos payment
+
+DOCUMENTACIÓN DE ENDPOINTS DEL SERVICIO DE ÓRDENES
+=================================================
+
+Todos los endpoints requieren autenticación mediante el header:
+Authorization: Bearer <token>
+
+El token debe contener el ID del usuario en el payload.
+
+1. CREAR ORDEN / AGREGAR AL CARRITO
+----------------------------------
+Endpoint: POST /order/create/
+Descripción: Crea una nueva orden en estado "CARRITO" o agrega un producto al carrito existente
+Body:
+{
+    "product_id": number,    // ID del producto a agregar
+    "quantity": number       // Cantidad (opcional, default: 1)
+}
+Respuesta: Objeto Order con sus productos
+
+2. VER CARRITO ACTUAL
+---------------------
+Endpoint: GET /order/cart/
+Descripción: Obtiene la orden actual en estado "CARRITO" del usuario
+Respuesta: 
+- Si hay carrito: Objeto Order con sus productos
+- Si no hay carrito: {"message": "No hay productos en el carrito"}
+
+3. AGREGAR PRODUCTO A ORDEN EXISTENTE
+------------------------------------
+Endpoint: POST /order/<order_id>/add-product/
+Descripción: Agrega un producto a una orden específica
+Body:
+{
+    "product_id": number,    // ID del producto a agregar
+    "quantity": number       // Cantidad (opcional, default: 1)
+}
+Respuesta: Objeto Order actualizado
+
+4. ELIMINAR PRODUCTO DE ORDEN
+----------------------------
+Endpoint: DELETE /order/<order_id>/delete-product/<product_id>/
+Descripción: Elimina un producto específico de una orden
+Respuesta: Objeto Order actualizado
+
+5. ACTUALIZAR ESTADO DE ORDEN
+----------------------------
+Endpoint: PUT /order/<order_id>/status/<status>/
+Descripción: Actualiza el estado de una orden
+Parámetros URL:
+- status: Uno de ['pending', 'onway', 'delivered', 'confirmed']
+Respuesta: Objeto Order actualizado
+
+6. OBTENER TODAS LAS ÓRDENES DEL USUARIO
+---------------------------------------
+Endpoint: GET /order/user/orders/
+Descripción: Obtiene todas las órdenes del usuario autenticado
+Respuesta: Lista de objetos Order
+
+7. OBTENER ÓRDENES ENTREGADAS
+----------------------------
+Endpoint: GET /order/user/orders/delivered/
+Descripción: Obtiene todas las órdenes del usuario con estado "DELIVERED"
+Respuesta: Lista de objetos Order con estado "DELIVERED"
+
+8. OBTENER ORDEN POR ID
+----------------------
+Endpoint: GET /order/<order_id>/
+Descripción: Obtiene una orden específica por su ID
+Respuesta: Objeto Order
+
+ESTRUCTURA DEL OBJETO ORDER
+==========================
+{
+    "id_order": number,          // ID de la orden
+    "id_user": number,           // ID del usuario
+    "total_price": number,       // Precio total
+    "order_status": string,      // Estado actual
+    "created_at": datetime,      // Fecha de creación
+    "updated_at": datetime,      // Fecha de última actualización
+    "products": [                // Lista de productos
+        {
+            "id_order_product": number,  // ID de la relación orden-producto
+            "id_product": number,        // ID del producto
+            "quantity": number           // Cantidad
+        }
+    ]
+}
+
+ESTADOS DE ORDEN
+===============
+- CARRITO: Orden en proceso de compra
+- PENDING: Orden pendiente de confirmación
+- ONWAY: Orden en camino
+- DELIVERED: Orden entregada
+- CONFIRMED: Orden confirmada
+
+NOTAS IMPORTANTES
+================
+1. Todas las peticiones requieren autenticación mediante token JWT
+2. Solo el propietario de una orden puede acceder o modificarla
+3. El precio total se calcula automáticamente al agregar/eliminar productos
+4. No se puede modificar una orden que no esté en estado "CARRITO"
+5. Un usuario solo puede tener una orden en estado "CARRITO" a la vez

@@ -25,8 +25,34 @@ SECRET_KEY = 'django-insecure-@3#t8nl9m!hn*3*y86ke3=c683wosfuspep+p^x@dfgb!vd%u(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+# CORS Settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 # Application definition
@@ -44,6 +70,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # This must be first
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -80,14 +107,13 @@ WSGI_APPLICATION = 'Catalog.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'db_res',
-        'USER': 'db_res_user',
-        'PASSWORD': 'Qx6XqldaYS6kFMG8GW1KKsUQo8J3EMSH',
-        'HOST': 'dpg-d05adfvgi27c738ofndg-a.oregon-postgres.render.com',
+        'NAME': 'db_res2',
+        'USER': 'db_res2_user',
+        'PASSWORD': 'K6PSaQ0XeWtTmDWUky7fF7O0aACXmoc1',
+        'HOST': 'dpg-d0sj2semcj7s73f2db70-a.oregon-postgres.render.com',
         'PORT': '5432',
     }
 }
-
 
 
 # Password validation
@@ -130,5 +156,3 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-ALLOWED_HOSTS = ['*']
-CORS_ALLOW_ALL_ORIGINS = True
