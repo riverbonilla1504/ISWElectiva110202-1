@@ -37,7 +37,7 @@ export default function Wallet() {
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   
-  const apiUrl = 'http://localhost:8002/payment';
+  const apiUrl = 'https://payment-dseqbhehdkdwbucg.eastus-01.azurewebsites.net/payment';
   
   const getUserId = () => {
     try {
