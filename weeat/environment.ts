@@ -1,5 +1,5 @@
 export const environment = {
-    apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    apiUrl: 'https://catalogservice-fvgefddfdpcteehg.eastus-01.azurewebsites.net',
     production: process.env.NODE_ENV === 'production',
     development: process.env.NODE_ENV === 'development',
   };

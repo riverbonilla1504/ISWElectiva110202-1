@@ -32,7 +32,7 @@ interface UserData {
 
 // Environment configuration
 const environment = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003/'
+  apiUrl: 'https://orderservice-f9erf2hye8gxfqcg.eastus-01.azurewebsites.net/'
 };
 
 // Create axios instance with default config

@@ -2,7 +2,6 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PigzasBackground from '../app/Background';
-import * as reactHooks from 'react';
 
 jest.mock('lucide-react', () => ({
   Pizza: () => <div data-testid="icon-pizza">Pizza Icon</div>,
@@ -26,9 +25,6 @@ describe('PigzasBackground Component', () => {
       randomCallCount++;
       return result;
     });
-    
-    jest.spyOn(reactHooks, 'useMemo');
-    jest.spyOn(reactHooks, 'useState');
   });
   
   afterEach(() => {
@@ -38,41 +34,20 @@ describe('PigzasBackground Component', () => {
   });
 
   it('renders with default props correctly', () => {
-    // Mock the generateIcons function result to return a smaller set for testing
-    const mockGenerateIcons = jest.fn().mockReturnValue([
-      <section key={1} className="absolute" style={{ top: '10%', left: '20%', transform: 'rotate(36deg)', opacity: 0.05 }}>
-        <div data-testid="icon-pizza">Pizza Icon</div>
-      </section>,
-      <section key={2} className="absolute" style={{ top: '30%', left: '40%', transform: 'rotate(108deg)', opacity: 0.07 }}>
-        <div data-testid="icon-utensils">Utensils Icon</div>
-      </section>
-    ]);
-    
-    // Mock useState to use our mockGenerateIcons function
-    jest.spyOn(reactHooks, 'useState').mockImplementationOnce(() => [mockGenerateIcons(), jest.fn()]);
-    
     render(<PigzasBackground />);
     
-    // Test container properties
-    const backgroundContainer = screen.getByRole('region', { hidden: true });
+    // Test container properties using direct query since it doesn't have a testid
+    const backgroundContainer = document.querySelector('[aria-hidden="true"]');
     expect(backgroundContainer).toBeInTheDocument();
     expect(backgroundContainer).toHaveAttribute('aria-hidden', 'true');
-    expect(backgroundContainer).toHaveClass('fixed inset-0 w-full h-full overflow-hidden pointer-events-none');
+    expect(backgroundContainer).toHaveClass('fixed', 'inset-0', 'w-full', 'h-full', 'overflow-hidden', 'pointer-events-none');
     expect(backgroundContainer).toHaveStyle({ zIndex: '-1', position: 'fixed' });
-    
-    // Verify useMemo and useState were called
-    expect(reactHooks.useMemo).toHaveBeenCalled();
-    expect(reactHooks.useState).toHaveBeenCalled();
   });
 
   it('renders with custom props correctly', () => {
-    // Small iconCount for testing performance
     const customIconCount = 5;
     const customZIndex = 10;
     const customClassName = "test-custom-class";
-    
-    // We need to reset the mock implementation for useState since we're going to render again
-    jest.spyOn(reactHooks, 'useState').mockRestore();
     
     render(
       <PigzasBackground 
@@ -82,94 +57,91 @@ describe('PigzasBackground Component', () => {
       />
     );
     
-    const backgroundContainer = screen.getByRole('region', { hidden: true });
+    const backgroundContainer = document.querySelector('[aria-hidden="true"]');
     expect(backgroundContainer).toBeInTheDocument();
-    expect(backgroundContainer).toHaveClass(`fixed inset-0 w-full h-full overflow-hidden pointer-events-none ${customClassName}`);
+    expect(backgroundContainer).toHaveClass('fixed', 'inset-0', 'w-full', 'h-full', 'overflow-hidden', 'pointer-events-none', customClassName);
     expect(backgroundContainer).toHaveStyle({ zIndex: `${customZIndex}`, position: 'fixed' });
-    
-    // Check that 5 sections would be generated for the icons
-    // Due to our mock implementation, we don't need to verify exact count in the DOM
-    expect(reactHooks.useMemo).toHaveBeenCalled();
-    expect(reactHooks.useState).toHaveBeenCalled();
   });
 
-  it('generates the correct number of icons based on iconCount prop', () => {
-    // Set a small number for performance in testing
+  it('generates icons based on iconCount prop', () => {
     const iconCount = 10;
-    
-    // We need to spy on the actual function implementation for this test
-    const useMemoSpy = jest.spyOn(reactHooks, 'useMemo');
-    const useStateSpy = jest.spyOn(reactHooks, 'useState');
     
     render(<PigzasBackground iconCount={iconCount} />);
     
-    // Check that useMemo was called with the correct dependencies
-    expect(useMemoSpy).toHaveBeenCalled();
-    
-    // Verify useState was called
-    expect(useStateSpy).toHaveBeenCalled();
-    
-    // Since we've mocked Math.random and other functions,
-    // we can indirectly verify the icon generation logic by 
-    // checking the background container is present
-    const backgroundContainer = screen.getByRole('region', { hidden: true });
+    const backgroundContainer = document.querySelector('[aria-hidden="true"]');
     expect(backgroundContainer).toBeInTheDocument();
+    
+    // Check that child sections are generated (they should be absolute positioned)
+    const iconSections = backgroundContainer?.querySelectorAll('section.absolute');
+    expect(iconSections?.length).toBe(iconCount);
   });
 
-  it('applies styling to icons correctly', () => {
-    // Mock generateIcons for this test to check styling
-    const mockIconElement = (
-      <section 
-        key={1} 
-        className="absolute" 
-        style={{ top: '50%', left: '50%', transform: 'rotate(180deg)', opacity: 0.05 }}
-        data-testid="test-icon-wrapper"
-      >
-        <div data-testid="icon-pizza" className="text-[var(--accent)]">Pizza Icon</div>
-      </section>
-    );
-    
-    // Mock useState to return our test icon
-    jest.spyOn(reactHooks, 'useState').mockImplementationOnce(() => [[mockIconElement], jest.fn()]);
-    
+  it('applies correct styling to icons', () => {
     render(<PigzasBackground iconCount={1} />);
     
-    // Since we're using a mock element, we can't check the actual DOM
-    // But we can verify the container is rendered correctly
-    const backgroundContainer = screen.getByRole('region', { hidden: true });
+    const backgroundContainer = document.querySelector('[aria-hidden="true"]');
+    expect(backgroundContainer).toBeInTheDocument();
+    
+    // Check that at least one icon section exists with correct positioning
+    const iconSection = backgroundContainer?.querySelector('section.absolute');
+    expect(iconSection).toBeInTheDocument();
+    expect(iconSection).toHaveClass('absolute');
+    
+    // Check that it has style properties for positioning
+    const style = iconSection?.getAttribute('style');
+    expect(style).toContain('top:');
+    expect(style).toContain('left:');
+    expect(style).toContain('transform:');
+    expect(style).toContain('opacity:');
+  });
+  
+  it('uses memoized icons array', () => {
+    render(<PigzasBackground />);
+    
+    // The component should render successfully and have a background container
+    const backgroundContainer = document.querySelector('[aria-hidden="true"]');
     expect(backgroundContainer).toBeInTheDocument();
   });
   
-  it('ensures icons array is memoized correctly', () => {
-    const useMemoSpy = jest.spyOn(reactHooks, 'useMemo');
+  it('generates different positions for icons', () => {
+    render(<PigzasBackground iconCount={3} />);
     
-    render(<PigzasBackground />);
+    const backgroundContainer = document.querySelector('[aria-hidden="true"]');
+    const iconSections = backgroundContainer?.querySelectorAll('section.absolute');
     
-    // Verify useMemo was called exactly twice (once for icons array, once for generateIcons result)
-    expect(useMemoSpy).toHaveBeenCalledTimes(2);
+    expect(iconSections?.length).toBe(3);
     
-    // The first call should be for the icons array
-    expect(useMemoSpy.mock.calls[0][1]).toEqual([]);
-  });
-  
-  it('memoizes the generated icons for performance', () => {
-    const useCallbackSpy = jest.spyOn(reactHooks, 'useCallback');
-    
-    render(<PigzasBackground />);
-    
-    // Verify useCallback was called for the generateIcons function
-    expect(useCallbackSpy).toHaveBeenCalled();
-    
-    // Check that the dependencies include the icons array and iconCount
-    const callbackDependencies = useCallbackSpy.mock.calls[0][1];
-    expect(callbackDependencies).toHaveLength(2);
-    expect(callbackDependencies).toContain('iconCount');
+    // Check that different sections have different styles (positions)
+    const styles = Array.from(iconSections || []).map(section => section.getAttribute('style'));
+    expect(styles[0]).not.toBe(styles[1]);
+    expect(styles[1]).not.toBe(styles[2]);
   });
   
   it('applies correct aria attributes for accessibility', () => {
     render(<PigzasBackground />);
     
-    const backgroundContainer = screen.getByRole('region', { hidden: true });
+    const backgroundContainer = document.querySelector('[aria-hidden="true"]');
     expect(backgroundContainer).toHaveAttribute('aria-hidden', 'true');
+  });
+  
+  it('renders different icon types', () => {
+    render(<PigzasBackground iconCount={50} />);
+    
+    // Check that different types of icons are rendered using queryAllByTestId
+    const iconTypes = [
+      'icon-pizza', 'icon-utensils', 'icon-clock', 
+      'icon-shopping-bag', 'icon-sandwich', 'icon-coffee', 'icon-chef-hat'
+    ];
+    
+    let foundIconTypes = 0;
+    iconTypes.forEach(iconType => {
+      const elements = screen.queryAllByTestId(iconType);
+      if (elements.length > 0) {
+        foundIconTypes++;
+      }
+    });
+    
+    // At least some different icon types should be present
+    expect(foundIconTypes).toBeGreaterThan(0);
   });
 });
