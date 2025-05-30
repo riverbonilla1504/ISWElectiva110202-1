@@ -1,8 +1,7 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ShoppingCart as ShoppingCartIcon, Plus, Minus, AlertCircle } from 'lucide-react';
-import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
-import Image from 'next/image';
+import axios from 'axios';
 
 // Types
 interface CartItem {
@@ -14,36 +13,19 @@ interface CartItem {
   id_product: number;
 }
 
+interface Order {
+  id?: number;
+  id_order?: number;
+  items: CartItem[];
+  total: number;
+  status: string;
+}
+
 interface UserData {
   id?: string;
   name?: string;
   email?: string;
   phone?: string;
-}
-
-interface ProductDetailsResponse {
-  id_product: number;
-  name: string;
-  description: string;
-  price: string;
-  picture: string;
-}
-
-interface ApiErrorResponse {
-  error?: string;
-  detail?: string;
-  message?: string;
-}
-
-interface CreateOrderPayload {
-  customer_id: number;
-  product_id?: number;
-  quantity?: number;
-  status?: string;
-  product_name?: string;
-  product_price?: number;
-  product_description?: string;
-  product_image?: string;
 }
 
 // API configuration
@@ -73,7 +55,8 @@ const catalogApi = axios.create({
 });
 
 // Add request interceptor to automatically add auth token for both APIs
-const addAuthToken = (config: InternalAxiosRequestConfig) => {
+const addAuthToken = (config: any) => {
+  config.headers = config.headers || {};
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token) {
@@ -87,12 +70,12 @@ api.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
 catalogApi.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
 
 // Add response interceptor to handle auth errors for both APIs
-const handleAuthError = (error: AxiosError) => {
+const handleAuthError = (error: any) => {
   if (error.response?.status === 403 || error.response?.status === 401) {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
     localStorage.removeItem('userData');
-    window.location.href = '/login';
+    window.location.href = '/Login';
   }
   return Promise.reject(error);
 };
@@ -145,14 +128,14 @@ export default function ShoppingCart() {
   };
 
   // Update authentication state
-  const updateAuthState = useCallback(() => {
+  const updateAuthState = () => {
     const { isAuthenticated: authStatus } = checkAuthentication();
     setIsAuthenticated(authStatus);
     setAuthInitialized(true);
-  }, []);
+  };
 
   // Load user data
-  const loadUserData = useCallback(() => {
+  const loadUserData = () => {
     try {
       const storedUserData = localStorage.getItem('userData');
       if (storedUserData && storedUserData !== 'undefined' && storedUserData !== 'null') {
@@ -164,114 +147,46 @@ export default function ShoppingCart() {
       console.error('Error parsing stored user data:', error);
       setUserData(null);
     }
-  }, []);
+  };
 
-  // New error handling function
-  const handleApiError = useCallback((error: unknown) => {
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        clearAuthData();
-        setError('Sesión expirada. Redirigiendo...');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-      } else if (error.response?.status === 404) {
-        console.log('No cart found - this is normal for new users');
-        setCartItems([]);
-        setCurrentOrderId(null);
-      } else {
-        const errorData = error.response?.data as ApiErrorResponse;
-        const errorMessage = errorData?.error || errorData?.detail || errorData?.message || 'Error desconocido';
-        setError(`Error ${error.response?.status || 'de conexión'}: ${errorMessage}`);
-      }
-    } else if (error instanceof Error) {
-      setError(`Error: ${error.message}`);
-    } else {
-      setError('Error desconocido al procesar la operación');
+  // Helper function to get auth headers with better error handling
+  const getAuthHeaders = () => {
+    const { token, isAuthenticated } = checkAuthentication();
+    
+    if (!isAuthenticated || !token) {
+      throw new Error('Usuario no autenticado - token no válido');
     }
-  }, []);
+
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  };
+
+  // Helper function to create axios config with auth
+  const getAxiosConfig = () => {
+    try {
+      return {
+        headers: getAuthHeaders(),
+        timeout: 10000 // 10 second timeout
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
 
   // Initialize component
   useEffect(() => {
     updateAuthState();
     loadUserData();
-  }, [updateAuthState, loadUserData]);
+  }, []);
 
   // Load cart when authentication is ready
-  const loadCart = useCallback(async () => {
-    if (!authInitialized) return;
-
-    if (!isAuthenticated) {
-      setCartItems([]);
-      setCurrentOrderId(null);
-      console.log('User not authenticated, clearing cart');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.get('/order/cart/');
-      console.log('Cart response:', response.data);
-
-      const orderData = response.data;
-
-      if (orderData) {
-        setCurrentOrderId(orderData.id || orderData.id_order || null);
-
-        let items = [];
-        if (orderData.items && Array.isArray(orderData.items)) {
-          items = orderData.items;
-        } else if (orderData.order_items && Array.isArray(orderData.order_items)) {
-          items = orderData.order_items;
-        } else if (orderData.products && Array.isArray(orderData.products)) {
-          items = orderData.products;
-        }
-
-        const formattedItems: CartItem[] = await Promise.all(
-          items.map(async (item: CartItem) => {
-            let productDetails = null;
-            
-            if (!item.name || !item.price) {
-              try {
-                productDetails = await fetchProductDetails(item.id_product);
-              } catch (productError) {
-                console.warn(`Could not fetch details for product ${item.id_product}:`, productError);
-              }
-            }
-
-            return {
-              id: item.id,
-              id_product: item.id_product,
-              name: item.name || productDetails?.name || `Producto ${item.id_product}`,
-              price: item.price || (productDetails ? parseFloat(productDetails.price) : 0),
-              quantity: parseInt(String(item.quantity || '1')),
-              image: item.image || productDetails?.picture || '/placeholder-food.png'
-            };
-          })
-        );
-
-        setCartItems(formattedItems);
-        console.log('Cart loaded successfully:', formattedItems);
-      } else {
-        setCartItems([]);
-        setCurrentOrderId(null);
-        console.log('No cart data found');
-      }
-    } catch (error) {
-      console.error('Error loading cart:', error);
-      handleApiError(error);
-      setCartItems([]);
-      setCurrentOrderId(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [authInitialized, isAuthenticated, handleApiError]);
-
   useEffect(() => {
-    loadCart();
-  }, [loadCart]);
+    if (authInitialized) {
+      loadCart();
+    }
+  }, [authInitialized, isAuthenticated]);
 
   // Listen for cart update events from other components
   useEffect(() => {
@@ -286,7 +201,7 @@ export default function ShoppingCart() {
     return () => {
       window.removeEventListener('cartUpdated', handleCartUpdate);
     };
-  }, [loadCart]);
+  }, [authInitialized]); // Include authInitialized as dependency
 
   // Show notification
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -317,94 +232,229 @@ export default function ShoppingCart() {
   };
 
   // Function to fetch product details from catalog
-  const fetchProductDetails = async (productId: number): Promise<ProductDetailsResponse | null> => {
+  const fetchProductDetails = async (productId: number) => {
     try {
-      console.log(`Fetching product details for ID: ${productId}`);
-      const response = await catalogApi.get(`/catalog/product/${productId}/`);
-      console.log('Product details response:', response.data);
-      return response.data;
+      const response = await catalogApi.get('/catalog/');
+      const products = response.data;
+      const product = products.find((p: any) => p.id_product === productId);
+      
+      if (product) {
+        return {
+          name: product.name,
+          price: parseFloat(product.price),
+          image: product.picture,
+          description: product.description
+        };
+      }
     } catch (error) {
-      console.error(`Error fetching product details for ${productId}:`, error);
-      return null;
+      console.error('Error fetching product details:', error);
+    }
+    
+    return {
+      name: 'Unknown Product',
+      price: 0,
+      image: undefined,
+      description: ''
+    };
+  };
+
+  // Load cart
+  const loadCart = async () => {
+    if (!authInitialized) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const { isAuthenticated: authStatus } = checkAuthentication();
+      if (!authStatus) {
+        console.log('Not authenticated, skipping cart load');
+        setCartItems([]);
+        setCurrentOrderId(null);
+        return;
+      }
+
+      console.log('Loading cart with authenticated request...');
+      const response = await api.get('/order/cart/');
+      console.log('Raw cart response:', response.data);
+      
+      const orderData = response.data;
+      
+      // Handle the actual backend response structure
+      if (orderData) {
+        const orderId = orderData.id_order || orderData.id || null;
+        setCurrentOrderId(orderId);
+        
+        // Check if we have items in the response
+        let items = [];
+        if (orderData.items && Array.isArray(orderData.items)) {
+          items = orderData.items;
+        } else if (orderData.order_items && Array.isArray(orderData.order_items)) {
+          items = orderData.order_items;
+        } else if (orderData.products && Array.isArray(orderData.products)) {
+          items = orderData.products;
+        }
+        
+        console.log('Extracted items:', items);
+        
+        // Map the items and fetch missing product details
+        const mappedItems = await Promise.all(items.map(async (item: any) => {
+          let productName = item.name || item.product_name || item.productName;
+          let productPrice = parseFloat(item.price || item.product_price || item.productPrice || '0');
+          let productImage = item.image || item.picture || item.product_image || item.productImage;
+          
+          // If product details are missing, fetch from catalog
+          if (!productName || productPrice === 0) {
+            const productId = item.id_product || item.product_id || item.id;
+            if (productId) {
+              console.log(`Fetching missing details for product ${productId}`);
+              const productDetails = await fetchProductDetails(productId);
+              productName = productName || productDetails.name;
+              productPrice = productPrice || productDetails.price;
+              productImage = productImage || productDetails.image;
+            }
+          }
+          
+          return {
+            id: item.id || item.id_item || item.item_id,
+            name: productName || 'Unknown Product',
+            price: productPrice,
+            quantity: parseInt(item.quantity || '1'),
+            image: productImage,
+            id_product: item.id_product || item.product_id || item.id
+          };
+        }));
+        
+        console.log('Mapped cart items with complete details:', mappedItems);
+        setCartItems(mappedItems);
+        
+        if (mappedItems.length > 0) {
+          console.log(`Cart loaded successfully with ${mappedItems.length} items`);
+        } else {
+          console.log('Cart is empty');
+        }
+      } else {
+        console.log('No cart data received');
+        setCartItems([]);
+        setCurrentOrderId(null);
+      }
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          // No cart exists yet - this is normal
+          console.log('No cart exists yet');
+          setCartItems([]);
+          setCurrentOrderId(null);
+        } else {
+          handleApiError(error);
+        }
+      } else {
+        handleApiError(error);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // New error handling function
+  const handleApiError = (error: any) => {
+    setCartItems([]);
+    setCurrentOrderId(null);
+    
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        const errorDetail = error.response?.data?.detail || error.message;
+        showNotification('error', `Sesión expirada: ${errorDetail}`);
+        clearAuthData();
+      } else {
+        showNotification('error', `Error: ${error.message}`);
+      }
+    } else if (error instanceof Error) {
+      showNotification('error', error.message);
     }
   };
 
   // Add product to order with complete product information
   const addProductToOrder = async (productId: number, quantity: number = 1) => {
     try {
-      if (!currentOrderId) {
-        console.log('No current order, creating new one...');
-        const productDetails = await fetchProductDetails(productId);
-        
-        if (productDetails) {
-          const orderId = await createOrder(productId, productDetails);
-          if (orderId) {
-            await loadCart();
-            showNotification('success', 'Producto agregado al carrito');
-          }
-        }
-        return;
-      }
-
-      console.log(`Adding product ${productId} to order ${currentOrderId}`);
+      setIsLoading(true);
+      setError(null);
       
+      const { isAuthenticated: authStatus } = checkAuthentication();
+      if (!authStatus) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      // Fetch product details from catalog
       const productDetails = await fetchProductDetails(productId);
       
-      const payload = {
-        status: 'pending',
-        product_id: productId,
-        quantity: quantity,
-        ...(productDetails && {
+      let orderId = currentOrderId;
+      if (!orderId) {
+        // Create order with the initial product and complete info
+        const orderData = {
+          status: 'pending',
+          product_id: productId,
+          quantity: quantity,
           product_name: productDetails.name,
           product_price: productDetails.price,
           product_description: productDetails.description,
-          product_image: productDetails.picture
-        })
-      };
+          product_image: productDetails.image
+        };
+        
+        orderId = await createOrder(productId, orderData);
+        if (!orderId) return;
+        
+        // If order was created with the product, just reload cart
+        await loadCart();
+        showNotification('success', 'Producto agregado al carrito');
+        return;
+      }
 
-      const response = await api.post(`/order/${currentOrderId}/add-product/`, payload);
-      console.log('Product added to order:', response.data);
+      console.log(`Adding product ${productId} to order ${orderId} with quantity ${quantity}`);
+      await api.post(`/order/${orderId}/add-product/`, {
+        product_id: productId,
+        quantity: quantity,
+        product_name: productDetails.name,
+        product_price: productDetails.price,
+        product_description: productDetails.description,
+        product_image: productDetails.image
+      });
       
       await loadCart();
       showNotification('success', 'Producto agregado al carrito');
     } catch (error) {
       console.error('Error adding product to order:', error);
       handleApiError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Create order with complete product information
-  const createOrder = async (initialProductId?: number, productData?: ProductDetailsResponse): Promise<number | null> => {
+  const createOrder = async (initialProductId?: number, productData?: any): Promise<number | null> => {
     try {
-      const { userId } = checkAuthentication();
-      if (!userId) {
+      setError(null);
+      
+      const { isAuthenticated: authStatus } = checkAuthentication();
+      if (!authStatus) {
         throw new Error('Usuario no autenticado');
       }
 
-      const payload: CreateOrderPayload = {
-        customer_id: parseInt(userId),
-      };
-
-      if (initialProductId && productData) {
-        payload.product_id = initialProductId;
-        payload.quantity = 1;
-        payload.status = 'pending';
-        payload.product_name = productData.name;
-        payload.product_price = parseFloat(productData.price);
-        payload.product_description = productData.description;
-        payload.product_image = productData.picture;
-      }
-
-      console.log('Creating order with payload:', payload);
-      const response = await api.post('/order/create/', payload);
+      console.log('Creating new order...');
       
-      const orderId = response.data?.id || response.data?.id_order;
-      if (!orderId) {
-        throw new Error('No se recibió ID de orden válido');
+      const orderData: any = { status: 'pending' };
+      if (initialProductId && productData) {
+        Object.assign(orderData, productData);
       }
-
+      
+      const response = await api.post('/order/create/', orderData);
+      const newOrder = response.data;
+      const orderId = newOrder.id || newOrder.id_order; // Handle both id formats
       setCurrentOrderId(orderId);
-      console.log('Order created successfully:', orderId);
+      console.log('Order created successfully:', newOrder);
       return orderId;
     } catch (error) {
       console.error('Error creating order:', error);
@@ -674,15 +724,13 @@ export default function ShoppingCart() {
                 {cartItems.map(item => (
                   <div key={`${item.id}-${item.id_product}`} className="flex items-center justify-between border-b border-gray-100 py-3 px-1">
                     <div className="flex items-center flex-1">
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                        <Image
-                          src={item.image || '/placeholder-food.png'}
+                      {item.image && (
+                        <img
+                          src={item.image}
                           alt={item.name}
-                          width={64}
-                          height={64}
-                          className="h-full w-full object-cover"
+                          className="w-12 h-12 object-cover rounded mr-3"
                         />
-                      </div>
+                      )}
                       <div>
                         <h3 className="font-medium text-gray-800 text-sm">{item.name}</h3>
                         <p className="text-xs text-gray-500">${item.price.toLocaleString()} COP c/u</p>
