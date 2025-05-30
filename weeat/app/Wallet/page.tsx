@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Card {
   id_card: number;
@@ -74,7 +74,7 @@ export default function Wallet() {
     }
   };
   
-  const fetchCards = useCallback(async () => {
+  const fetchCards = async () => {
     const userId = getUserId();
     const token = getAuthToken();
     
@@ -86,69 +86,50 @@ export default function Wallet() {
     
     try {
       setIsLoading(true);
-      setError(null);
       
-      const endpoint = `${apiUrl}/get/${parseInt(userId, 10)}/`;
-      console.log(`Fetching cards from: ${endpoint}`);
+      const apiEndpoint = `${apiUrl}/getall/${userId}/`;
+      console.log(`Fetching cards from: ${apiEndpoint}`);
       
-      const response = await axios.get(endpoint, {
+      const response = await axios.get(apiEndpoint, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        params: {
+          id_user: parseInt(userId, 10)
+        },
+        timeout: 5000
       });
       
-      console.log('Cards fetched successfully', response.data);
+      console.log('Cards API Response received:', response.status);
       
-      if (Array.isArray(response.data)) {
-        const cardsWithHidden = response.data.map((card: Card) => ({
-          ...card,
-          hidden: true
-        }));
-        setCards(cardsWithHidden);
-      } else {
-        console.error('Unexpected response format:', response.data);
-        setError('Formato de respuesta inesperado del servidor');
-        setCards([]);
-      }
+      setCards(Array.isArray(response.data) ? response.data.map((card: { id_card: number; card_number: string; exp_date?: string; expiry_date?: string; cardholder_name?: string; }) => ({
+        id_card: card.id_card,
+        card_number: card.card_number,
+        expiry_date: card.exp_date || card.expiry_date || '',
+        cardholder_name: card.cardholder_name,
+        hidden: true
+      })) : []);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error fetching cards:', error);
       
       if (axios.isAxiosError(error)) {
-        console.log('Error status:', error.response?.status);
-        console.log('Error data:', error.response?.data);
-        
         const statusCode = error.response?.status || 'de conexión';
-        let errorMessage = 'Error desconocido';
-        
-        if (error.response?.data) {
-          if (typeof error.response.data === 'string') {
-            errorMessage = error.response.data;
-          } else if (error.response.data.error) {
-            errorMessage = error.response.data.error;
-          } else if (error.response.data.detail) {
-            errorMessage = error.response.data.detail;
-          } else if (error.response.data.message) {
-            errorMessage = error.response.data.message;
-          }
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        
+        const errorMessage = error.response?.data?.detail || error.message;
         setError(`Error ${statusCode}: ${errorMessage}`);
+        console.log('Full error response:', error.response?.data);
       } else {
         setError('Error al cargar las tarjetas');
       }
       
-      setCards([]);
-    } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
   
   useEffect(() => {
     fetchCards();
-  }, [fetchCards]);
+  }, []);
   
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {

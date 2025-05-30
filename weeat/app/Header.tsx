@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Package, Menu, User, X, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import axios, { InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
 import UserProfileEditor from './UserProfileEditor';
 import ShoppingCart from './ShoppingCart'; // Import the backend shopping cart component
 
@@ -15,6 +15,14 @@ interface CartItem {
   quantity: number;
   image?: string;
   id_product: number;
+}
+
+interface Order {
+  id?: number;
+  id_order?: number; // Added to match backend response
+  items: CartItem[];
+  total: number;
+  status: string;
 }
 
 interface UserData {
@@ -35,7 +43,7 @@ const api = axios.create({
 
 // Add request interceptor to automatically add auth token
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  (config) => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
       if (token) {
@@ -59,7 +67,7 @@ api.interceptors.response.use(
       localStorage.removeItem('userId');
       localStorage.removeItem('userData');
       // Redirect to login
-      window.location.href = '/login';
+      window.location.href = '/Login';
     }
     return Promise.reject(error);
   }
@@ -75,6 +83,11 @@ export default function Header() {
   // User data state
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // Cart state for header display (will be synced with backend)
+  const [cartItemCount, setCartItemCount] = useState(0);
+  const [isCartLoading, setIsCartLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Check authentication status
   const checkAuthentication = (): { token: string | null; userId: string | null; isAuthenticated: boolean } => {
@@ -109,21 +122,17 @@ export default function Header() {
     }
   };
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userData');
-    setUserData(null);
-    router.push('/login');
-  }, [router]);
-
   // Load cart count for header display
-  const loadCartCount = useCallback(async () => {
+  const loadCartCount = async () => {
     try {
       const { isAuthenticated } = checkAuthentication();
       if (!isAuthenticated) {
+        setCartItemCount(0);
         return;
       }
+
+      setIsCartLoading(true);
+      setError(null);
       
       const response = await api.get('/order/cart/');
       console.log('Header cart response:', response.data);
@@ -141,25 +150,32 @@ export default function Header() {
           items = orderData.products;
         }
         
-        const totalItems = items.reduce((total: number, item: CartItem) => {
-          const quantity = parseInt(String(item.quantity || '1'));
+        const totalItems = items.reduce((total: number, item: any) => {
+          const quantity = parseInt(item.quantity || '1');
           return total + quantity;
         }, 0);
         
         console.log('Header cart count:', totalItems);
+        setCartItemCount(totalItems);
+      } else {
+        setCartItemCount(0);
       }
     } catch (error) {
       console.error('Error loading cart count:', error);
+      setCartItemCount(0);
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401 || error.response?.status === 403) {
           handleLogout();
         } else if (error.response?.status === 404) {
           // No cart exists yet - this is normal
           console.log('No cart exists for header count');
+          setCartItemCount(0);
         }
       }
+    } finally {
+      setIsCartLoading(false);
     }
-  }, [handleLogout]);
+  };
 
   // Basic user data fetch for header display
   useEffect(() => {
@@ -188,23 +204,27 @@ export default function Header() {
     };
 
     fetchBasicUserData();
-    loadCartCount();
-  }, [loadCartCount]);
+    loadCartCount(); // Load cart count on component mount
+  }, []);
 
-  // Listen for cart updates and reload count
+  // Refresh cart count when cart operations happen
+  const handleCartUpdate = () => {
+    loadCartCount();
+  };
+
+  // Listen for cart updates from other components
   useEffect(() => {
-    const handleCartUpdate = () => {
-      console.log('Cart update event received in header, reloading count...');
+    const handleCartChange = () => {
       loadCartCount();
     };
 
     // Listen for custom cart update events
-    window.addEventListener('cartUpdated', handleCartUpdate);
+    window.addEventListener('cartUpdated', handleCartChange);
     
     return () => {
-      window.removeEventListener('cartUpdated', handleCartUpdate);
+      window.removeEventListener('cartUpdated', handleCartChange);
     };
-  }, [loadCartCount]);
+  }, []);
 
   const toggleProfileDropdown = () => {
     setProfileDropdownOpen(!profileDropdownOpen);
@@ -214,6 +234,20 @@ export default function Header() {
   const toggleSideMenu = () => {
     setSideMenuOpen(!sideMenuOpen);
     if (profileDropdownOpen) setProfileDropdownOpen(false);
+  };
+
+  const handleLogout = () => {
+    // Clear all authentication data
+    localStorage.removeItem('token');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('userId');
+    
+    // Reset the user data state
+    setUserData(null);
+    setCartItemCount(0);
+    
+    // Redirect to login page
+    router.push('/Login');
   };
 
   // Navigation handlers
