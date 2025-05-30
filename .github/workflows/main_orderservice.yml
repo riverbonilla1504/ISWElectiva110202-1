@@ -1,6 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 name: orderservice
 
 on:
@@ -28,13 +25,15 @@ jobs:
         run: |
           python -m venv venv
           source venv/bin/activate
+
       - name: Install dependencies
         working-directory: backend/Order
         run: pip install -r requirements.txt
 
       - name: Zip artifact for deployment
         working-directory: backend/Order
-        run: zip -r ../../release.zip . -x "venv/**"
+        run: |
+          zip -r ../../release.zip . -x "venv/**"
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
@@ -64,14 +63,13 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_0007B38FB8A5419E937233874B9AF6F8 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_073D57810BAD4A05A30E35C593BEE41F }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C818EE54BEEB42DD9D06BB930219D592 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_27946C4A73684B71B24B1D0F3E700A04 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_EA19243AB51845F3BF56DCE3DEA8B814 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_9EE99F912A0B4647A0A25C4C7FFCB600 }}
 
-      - name: 'Deploy to Azure Web App'
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'orderservice'
-          slot-name: 'Production'
           package: .
