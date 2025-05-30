@@ -1,14 +1,14 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
-
-name: Build and deploy Python app to Azure Web App - catalogservice
+name:  catalogservice
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+
+concurrency:
+  group: 'catalogservice-deploy'
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -75,5 +75,4 @@ jobs:
         id: deploy-to-webapp
         with:
           app-name: 'catalogservice'
-          slot-name: 'Production'
           package: .
