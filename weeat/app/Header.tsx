@@ -67,7 +67,7 @@ api.interceptors.response.use(
       localStorage.removeItem('userId');
       localStorage.removeItem('userData');
       // Redirect to login
-      window.location.href = '/login';
+      window.location.href = '/Login';
     }
     return Promise.reject(error);
   }

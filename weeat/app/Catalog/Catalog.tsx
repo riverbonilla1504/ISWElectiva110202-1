@@ -63,7 +63,7 @@ const handleAuthError = (error: any) => {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
     localStorage.removeItem('userData');
-    window.location.href = '/login';
+    window.location.href = '/Login';
   }
   return Promise.reject(error);
 };
